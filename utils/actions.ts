@@ -11,7 +11,6 @@ import dayjs from "dayjs";
 
 function authenticateAndRedirect(): string {
   const { userId } = auth();
-  console.log("userId", userId);
 
   if (!userId) {
     redirect("/");
@@ -87,14 +86,23 @@ export async function getAllJobsAction({
       };
     }
 
+    const skip = (page - 1) * limit;
+
     const jobs: JobType[] = await prisma.job.findMany({
       where: whereClause,
+      take: limit,
+      skip,
       orderBy: {
         createdAt: "desc",
       },
     });
 
-    return { jobs, count: 0, page: 1, totalPages: 0 };
+    const count: number = await prisma.job.count({
+      where: whereClause,
+    });
+    const totalPages = Math.ceil(count / limit);
+
+    return { jobs, count, page, totalPages };
   } catch (error) {
     console.error(error);
     return { jobs: [], count: 0, page: 1, totalPages: 0 };
@@ -164,6 +172,7 @@ export async function getStatsAction(): Promise<{
   interview: number;
   declined: number;
 }> {
+  await new Promise((resolve) => setTimeout(resolve, 3000));
   const userId = authenticateAndRedirect();
   // just to show Skeleton
   // await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -199,7 +208,7 @@ export async function getChartsDataAction(): Promise<
   Array<{ date: string; count: number }>
 > {
   const userId = authenticateAndRedirect();
-  const sixMonthsAgo = dayjs().subtract(6, 'month').toDate();
+  const sixMonthsAgo = dayjs().subtract(6, "month").toDate();
   try {
     const jobs = await prisma.job.findMany({
       where: {
@@ -209,12 +218,12 @@ export async function getChartsDataAction(): Promise<
         },
       },
       orderBy: {
-        createdAt: 'asc',
+        createdAt: "asc",
       },
     });
 
     let applicationsPerMonth = jobs.reduce((acc, job) => {
-      const date = dayjs(job.createdAt).format('MMM YY');
+      const date = dayjs(job.createdAt).format("MMM YY");
 
       const existingEntry = acc.find((entry) => entry.date === date);
 
@@ -229,6 +238,6 @@ export async function getChartsDataAction(): Promise<
 
     return applicationsPerMonth;
   } catch (error) {
-    redirect('/jobs');
+    redirect("/jobs");
   }
 }
